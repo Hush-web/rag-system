@@ -73,19 +73,29 @@ class RAGSystem:
 
 
 if __name__ == "__main__":
-    # Test the RAG system
     rag = RAGSystem()
 
-    test_queries = [
-        "What is RAG?",
-        "What are vector databases?",
-        "How do embeddings work?"
-    ]
+    print("\n" + "="*60)
+    print("RAG System Ready! Ask me anything about your documents.")
+    print("Type 'exit' or 'quit' to stop.")
+    print("="*60 + "\n")
 
-    for query in test_queries:
+    while True:
+        query = input("Your question: ")
+        
+        if query.lower() in ["exit", "quit", "q"]:
+            print("Goodbye!")
+            break
+        
+        if not query.strip():
+            print("Please enter a question.\n")
+            continue
+        
         print("\n" + "="*60)
         print(f"Query: {query}")
         print("="*60)
+        
         result = rag.answer(query)
-        print(f"Answer: {result['answer']}")
-        print(f"Sources: {result['sources']}")
+        print(f"\nAnswer: {result['answer']}")
+        print(f"\nSources: {result['sources']}")
+        print("\n" + "-"*60 + "\n")
