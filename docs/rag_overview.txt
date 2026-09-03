@@ -1,0 +1,9 @@
+RAG stands for Retrieval-Augmented Generation. It is a technique that combines retrieval of relevant documents with generative AI to answer questions.
+
+The RAG architecture works in four steps:
+1. Document Ingestion: Documents are loaded, cleaned, and split into chunks.
+2. Embedding: Each chunk is converted to a vector using embedding models.
+3. Storage: Vectors are stored in a vector database for efficient search.
+4. Retrieval & Generation: When a question is asked, similar chunks are retrieved and used as context for the LLM.
+
+RAG reduces hallucinations, improves accuracy, and allows AI to access external knowledge beyond its training data.

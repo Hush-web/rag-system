@@ -1,0 +1,13 @@
+This is a sample document for testing our RAG system.
+
+    RAG stands for Retrieval-Augmented Generation. It combines retrieval of relevant documents with generative AI to answer questions.
+
+    The system works by:
+    1. Splitting documents into chunks
+    2. Creating embeddings for each chunk
+    3. Storing them in a vector database
+    4. When a question is asked, finding the most similar chunks
+    5. Using those chunks as context for the LLM to generate an answer
+
+    This approach reduces hallucinations and makes the AI more trustworthy.
+    

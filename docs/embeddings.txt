@@ -1,0 +1,14 @@
+Embeddings are numerical representations of text that capture semantic meaning.
+
+Words, sentences, and documents are converted to vectors of floating-point numbers (e.g., 384 dimensions for all-MiniLM-L6-v2).
+
+Similar meanings have similar vectors, enabling operations like:
+- Similarity search: Find documents related to a query
+- Semantic clustering: Group documents by theme
+- Recommendation: Find similar items
+
+Popular embedding models include:
+- OpenAI embeddings: ADA-002 (1536 dimensions)
+- Sentence Transformers: all-MiniLM-L6-v2 (384 dimensions)
+- Cohere embeddings: multilingual
+- BGE: Chinese and English support
