@@ -15,6 +15,7 @@ logger.info(f"Found {len(supported)} documents")
 
 # Process in batches of 10
 batch_size = 10
+all_chunks = []
 
 for i in range(0, len(supported), batch_size):
     batch = supported[i:i + batch_size]
@@ -40,6 +41,12 @@ for i in range(0, len(supported), batch_size):
     # Save these chunks to the vector store
     if chunks:
         vector_store.add_chunks(chunks)
+        all_chunks.extend(chunks)
         logger.info(f"  Added {len(chunks)} chunks")
+
+# Build BM25 index from all chunks
+logger.info("Building BM25 index...")
+chunker.build_bm25_index(all_chunks)
+logger.info("BM25 index built and saved.")
 
 logger.info("All done!")

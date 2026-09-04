@@ -8,6 +8,8 @@ import tiktoken
 import chromadb
 from fastembed import TextEmbedding
 import numpy as np
+from rank_bm25 import BM25Okapi
+import pickle
 
 class DocumentChunker:
     """Load and chunk documents from various formats."""
@@ -16,6 +18,9 @@ class DocumentChunker:
         self.chunk_size = chunk_size
         self.overlap = overlap
         self.encoding = tiktoken.get_encoding("cl100k_base")
+        self.bm25 = None
+        self.chunks = []
+        self.chunk_map = {}
 
     def load_text_file(self, path: str) -> str:
         with open(path, 'r', encoding='utf-8') as f:
@@ -81,17 +86,38 @@ class DocumentChunker:
                     logger.info(f"  → {len(chunks)} chunks created")
                 except Exception as e:
                     logger.error(f"Error processing {file_path.name}: {e}")
+        # Build BM25 index from results
+        if results:
+            self.build_bm25_index(results)
         return results
+
+    def build_bm25_index(self, chunks):
+        """Build a BM25 index and save to disk."""
+        # Tokenize each chunk's text (lowercase, split by whitespace)
+        tokenized_corpus = [chunk['text'].lower().split() for chunk in chunks]
+        self.bm25 = BM25Okapi(tokenized_corpus)
+        self.chunks = chunks
+
+        # Create a mapping from source_chunk_id to chunk dict
+        self.chunk_map = {}
+        for chunk in chunks:
+            key = f"{chunk['source']}_{chunk['chunk_id']}"
+            self.chunk_map[key] = chunk
+
+        # Save BM25 index and chunk_map to disk
+        os.makedirs("data", exist_ok=True)
+        with open('data/bm25_index.pkl', 'wb') as f:
+            pickle.dump((self.bm25, self.chunks, self.chunk_map), f)
+        logger.info(f"BM25 index built with {len(chunks)} chunks and saved to data/bm25_index.pkl")
 
 
 class FastEmbeddingFunction:
     """Custom embedding function using fastembed."""
-    
+
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
         self.model = TextEmbedding(model_name=model_name)
-    
+
     def __call__(self, input: List[str]) -> List[List[float]]:
-        """ChromaDB expects parameter name 'input'."""
         embeddings = list(self.model.embed(input))
         return [emb.tolist() for emb in embeddings]
 
@@ -99,16 +125,16 @@ class FastEmbeddingFunction:
 class VectorStore:
     """Manage embeddings and vector storage using ChromaDB with fastembed."""
 
-    def __init__(self, collection_name: str = "documents", persist_directory: str = "./data/chromadb"):
+    def __init__(self, collection_name: str = "rag_docs", persist_directory: str = "./data/chromadb"):
         self.persist_directory = persist_directory
         self.collection_name = collection_name
-        
+
         self.embedding_function = FastEmbeddingFunction(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
-        
+
         self.client = chromadb.PersistentClient(path=persist_directory)
-        
+
         try:
             self.collection = self.client.get_collection(name=collection_name)
             logger.info(f"Collection '{collection_name}' loaded")
@@ -122,11 +148,11 @@ class VectorStore:
     def add_chunks(self, chunks: list) -> int:
         if not chunks:
             return 0
-            
+
         ids = []
         documents = []
         metadatas = []
-        
+
         for chunk in chunks:
             doc_id = f"{chunk['source']}_{chunk['chunk_id']}"
             ids.append(doc_id)
@@ -136,7 +162,7 @@ class VectorStore:
                 "chunk_id": chunk['chunk_id'],
                 "token_count": chunk['token_count']
             })
-        
+
         try:
             self.collection.add(
                 ids=ids,
@@ -169,7 +195,7 @@ class VectorStore:
 
 def setup_sample_documents():
     os.makedirs("docs", exist_ok=True)
-    
+
     sample_docs = [
         ("rag_overview.txt", """
 RAG stands for Retrieval-Augmented Generation. It is a technique that combines retrieval of relevant documents with generative AI to answer questions.
@@ -211,49 +237,9 @@ Popular embedding models include:
 - BGE: Chinese and English support
 """)
     ]
-    
+
     for filename, content in sample_docs:
         filepath = os.path.join("docs", filename)
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content.strip())
         logger.info(f"Created: {filepath}")
-
-
-if __name__ == "__main__":
-    setup_sample_documents()
-    
-    chunker = DocumentChunker(chunk_size=500, overlap=50)
-    chunks = chunker.process_directory("docs")
-    
-    print(f"\nTotal chunks created: {len(chunks)}")
-    for r in chunks[:3]:
-        print(f"\n--- Chunk {r['chunk_id']} from {r['source']} ---")
-        print(r['text'][:200] + "...")
-    
-    print("\n" + "="*50)
-    print("Creating Vector Store...")
-    
-    vector_store = VectorStore(collection_name="rag_docs")
-    count = vector_store.add_chunks(chunks)
-    print(f"Total vectors in store: {vector_store.get_count()}")
-    
-    print("\n" + "="*50)
-    print("Testing Search...")
-    
-    test_queries = [
-        "What is RAG?",
-        "What are vector databases?",
-        "How do embeddings work?"
-    ]
-    
-    for query in test_queries:
-        print(f"\nQuery: {query}")
-        results = vector_store.search(query, n_results=2)
-        
-        if results and results.get('documents') and results['documents'][0]:
-            print(f"Found {len(results['documents'][0])} results:")
-            for i, (doc, metadata) in enumerate(zip(results['documents'][0], results['metadatas'][0])):
-                print(f"  {i+1}. From: {metadata['source']}")
-                print(f"     Preview: {doc[:100]}...")
-        else:
-            print("  No results found.")
